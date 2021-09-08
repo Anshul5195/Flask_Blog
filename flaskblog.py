@@ -2,6 +2,7 @@ from flask import Flask, render_template, url_for
 
 app = Flask(__name__)
 
+# This posts is just to show, suppose that we are retrieving that posts data from database.
 posts = [
     {
         'title': 'Fire1',
