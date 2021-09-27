@@ -3,8 +3,8 @@ from flask_login import login_user, current_user, logout_user, login_required
 from flaskblog import db, bcrypt
 from flaskblog.models import User, Post
 from flaskblog.users.forms import (RegistrationForm, LoginForm, UpdateAccountForm,
-                                   RequestResetForm, ResetPasswordForm)
-from flaskblog.users.utils import save_picture, send_reset_email
+                                   RequestResetForm, ResetPasswordForm, ConfirmEmailRequestForm)
+from flaskblog.users.utils import save_picture, send_reset_email, send_confirm_email
 
 
 users = Blueprint('users', __name__)
@@ -20,8 +20,8 @@ def register():
         user = User(username=form.username.data, email=form.email.data, password=hashed_password)
         db.session.add(user)
         db.session.commit()
-        flash('Your account has been created! You are now able to log in', 'success')
-        return redirect(url_for('users.login'))
+        flash('Your account has been created! Please confirm your email first before log in', 'info')
+        return redirect(url_for('users.confirm_email_request'))
     return render_template('register.html', title='Register', form=form)
 
 
@@ -32,13 +32,16 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
-        if user and bcrypt.check_password_hash(user.password, form.password.data):
-            login_user(user, remember=form.remember.data)
-            next_page = request.args.get('next')
-            flash('You are now logged in!', 'success')
-            return redirect(next_page) if next_page else redirect(url_for('main.home'))
+        if user.is_confirmed:
+            if user and bcrypt.check_password_hash(user.password, form.password.data):
+                login_user(user, remember=form.remember.data)
+                next_page = request.args.get('next')
+                flash('You are now logged in!', 'success')
+                return redirect(next_page) if next_page else redirect(url_for('main.home'))
+            else:
+                flash('Login Unsuccessful. Please check username and password', 'danger')
         else:
-            flash('Login Unsuccessful. Please check username and password', 'danger')
+            flash('Please confirm your email first before log in', 'info')
     return render_template('login.html', title='Login', form=form)
 
 
@@ -46,6 +49,7 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('main.home'))
+
 
 @users.route("/account", methods=['GET', 'POST'])
 @login_required
@@ -65,6 +69,7 @@ def account():
         form.email.data = current_user.email
     image_file = url_for('static', filename='profile_pics/' + current_user.image_file)
     return render_template('account.html', title='Account', image_file=image_file, form=form)
+
 
 @users.route("/user/<string:username>")
 def user_posts(username):
@@ -88,11 +93,12 @@ def reset_request():
         return redirect(url_for('users.login'))
     return render_template('reset_request.html', title='Reset Password', form=form)
 
+
 @users.route("/reset_password/<token>", methods=['GET', 'POST'])
 def reset_token(token):
     if current_user.is_authenticated:
         return redirect(url_for('main.home'))
-    user = User.verify_reset_token(token)
+    user = User.verify_token(token)
     if user is None:
         flash('That is invalid or expired token', 'warning')
         return redirect(url_for('users.reset_request'))
@@ -104,3 +110,33 @@ def reset_token(token):
         flash('Your password has been updated! You are now able to log in', 'success')
         return redirect(url_for('users.login'))
     return render_template('reset_token.html', title='Reset Password', form=form)
+
+
+@users.route("/confirm_email", methods=['GET', 'POST'])
+def confirm_email_request():
+    if current_user.is_authenticated:
+        return redirect(url_for('main.home'))
+    form = ConfirmEmailRequestForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user.is_confirmed:
+            flash('Your email is already confirmed you can now login', 'info')
+        else:
+            send_confirm_email(user)
+            flash('An email has been sent with instruction to confirm your email', 'info')
+            return redirect(url_for('users.login'))
+    return render_template('confirm_email_request.html', title='Confirm Email', form=form)
+
+
+@users.route("/confirm_email/<token>", methods=['GET', 'POST'])
+def confirm_email_token(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('main.home'))
+    user = User.verify_token(token)
+    if user is None:
+        flash('That is invalid or expired token', 'warning')
+        return redirect(url_for('users.confirm_email_request'))
+    user.is_confirmed = 1
+    db.session.commit()
+    flash('Your email has been confirmed! You are now able to log in', 'success')
+    return redirect(url_for('users.login'))
