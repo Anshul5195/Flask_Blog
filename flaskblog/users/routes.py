@@ -20,8 +20,9 @@ def register():
         user = User(username=form.username.data, email=form.email.data, password=hashed_password)
         db.session.add(user)
         db.session.commit()
+        send_confirm_email(user)
         flash('Your account has been created! Please confirm your email first before log in', 'info')
-        return redirect(url_for('users.confirm_email_request'))
+        return redirect(url_for('users.login'))
     return render_template('register.html', title='Register', form=form)
 
 
@@ -42,6 +43,7 @@ def login():
                 flash('Login Unsuccessful. Please check username and password', 'danger')
         else:
             flash('Please confirm your email first before log in', 'info')
+            return redirect(url_for('users.confirm_email_request'))
     return render_template('login.html', title='Login', form=form)
 
 
