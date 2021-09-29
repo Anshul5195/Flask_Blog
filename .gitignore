@@ -1,1 +1,6 @@
 flaskblog/site.db
+flaskblog_venv/
+*/__pycache__/
+*/.DS_Store
+*/__init__.pyc
+flaskblog/static/profile_pics
