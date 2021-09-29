@@ -4,4 +4,3 @@ flaskblog_venv/
 *.DS_Store
 *.pyc
 .idea/
-flaskblog/static/profile_pics/*
