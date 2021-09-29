@@ -3,5 +3,5 @@ flaskblog_venv/
 *__pycache__/
 *.DS_Store
 *.pyc
-.idea
+.idea/
 flaskblog/static/profile_pics/
